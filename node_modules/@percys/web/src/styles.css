@@ -1,0 +1,151 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --pl-accent: #3b82f6;
+    --pl-accent-hover: #2563eb;
+    --pl-accent-rgb: 59 130 246;
+    --pl-accent-hover-rgb: 37 99 235;
+    
+    --pl-bg: #030408;
+    --pl-surface: #0a0c14;
+    --pl-border: rgba(255, 255, 255, 0.06);
+    --pl-glass: rgba(10, 12, 20, 0.7);
+  }
+
+  html, body, #root {
+    height: 100%;
+    @apply antialiased overflow-hidden;
+  }
+
+  body {
+    font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+    background:
+      radial-gradient(1200px 800px at 8% -10%, rgba(var(--pl-accent-rgb) / 0.16), transparent 55%),
+      radial-gradient(1000px 800px at 100% 0%, rgba(var(--pl-accent-rgb) / 0.09), transparent 60%),
+      var(--pl-bg);
+    color: var(--pl-fg, #e2e8f0);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  .pl-glass {
+    @apply backdrop-blur-2xl bg-white/[0.03] border border-white/[0.08];
+  }
+  
+  .pl-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1 text-xs font-bold text-slate-400 border border-white/5 transition-all hover:bg-white/10 hover:text-slate-200;
+  }
+  
+  .pl-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-white/5 px-4 py-2.5 text-sm font-bold text-slate-400 transition-all hover:bg-white/10 hover:text-white active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+    border: 1px solid rgba(var(--pl-accent-rgb) / 0.18);
+  }
+  
+  .pl-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-black text-white transition-all active:scale-95;
+    background-color: var(--pl-accent);
+    box-shadow: 0 20px 25px -5px rgba(var(--pl-accent-rgb) / 0.2), 0 8px 10px -6px rgba(var(--pl-accent-rgb) / 0.2);
+  }
+  .pl-btn-primary:hover {
+    background-color: var(--pl-accent-hover);
+    box-shadow: 0 20px 25px -5px rgba(var(--pl-accent-rgb) / 0.4), 0 8px 10px -6px rgba(var(--pl-accent-rgb) / 0.4);
+  }
+  
+  .pl-card {
+    @apply rounded-3xl bg-white/[0.02] border border-white/[0.05] overflow-hidden transition-all duration-500 hover:border-white/10;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      0 24px 60px -28px rgba(2, 6, 23, 0.55);
+  }
+}
+
+.reader-shell {
+  background: #000;
+}
+
+.reader-page-img {
+  user-select: none;
+  -webkit-user-drag: none;
+  image-rendering: -webkit-optimize-contrast;
+}
+
+.pl-gradient-bg {
+  background: radial-gradient(circle at 0% 0%, rgba(var(--pl-accent-rgb) / 0.05) 0%, transparent 50%),
+              radial-gradient(circle at 100% 100%, rgba(var(--pl-accent-rgb) / 0.05) 0%, transparent 50%);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(15px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+[data-anim="0"] * {
+  animation: none !important;
+  transition: none !important;
+}
+
+@keyframes loading-indeterminate {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
+
+.pl-brand {
+  color: var(--pl-fg, #ffffff);
+  text-shadow:
+    0 0 12px rgba(var(--pl-accent-rgb) / 0.38),
+    0 0 28px rgba(var(--pl-accent-rgb) / 0.18);
+  background-image: linear-gradient(
+    92deg,
+    color-mix(in srgb, var(--pl-fg, #fff) 88%, white 12%),
+    color-mix(in srgb, var(--pl-accent, #7c5cff) 72%, var(--pl-fg, #fff) 28%),
+    color-mix(in srgb, var(--pl-fg, #fff) 84%, white 16%)
+  );
+  background-size: 220% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: pl-brand-shimmer 6s linear infinite;
+}
+
+.pl-brand-sub {
+  color: color-mix(in srgb, var(--pl-text-2, #94a3b8) 75%, var(--pl-accent, #7c5cff) 25%);
+}
+
+@keyframes pl-brand-shimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 220% 50%; }
+}

@@ -1,15 +1,1 @@
-node_modules
-dist
-build
-.env
-.env.local
-.DS_Store
-*.log
-apps/server/cache/
-apps/server/data/
-data/
-apps/server/prisma/dev.db
-apps/server/prisma/dev.db-journal
-apps/server/prisma/migrations/dev_*
-.vscode
-.idea
+# intentionally left blank to track all files
