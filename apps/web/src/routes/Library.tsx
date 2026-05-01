@@ -102,16 +102,20 @@ export function Library({ scope = "all" }: Props) {
     }
     try {
       const r = await upload(files);
-      // Single consolidated toast: how many were imported, plus a tail
-      // when some were skipped. This used to be two separate toasts that
-      // stacked on top of each other on every import.
-      const noun = r.uploaded.length === 1 ? "cómic" : "cómics";
-      const head = `Importado${r.uploaded.length === 1 ? "" : "s"} ${r.uploaded.length} ${noun}`;
+      // Single consolidated toast: how many were really registered in
+      // the library, plus a tail when some were skipped. We base the
+      // count on `r.added` (DB rows created) instead of
+      // `r.uploaded.length` (files written to disk) so a batch of
+      // unreadable archives doesn't claim a misleading success.
+      const unreadable = Math.max(0, r.uploaded.length - r.added);
+      const noun = r.added === 1 ? "cómic" : "cómics";
+      const head = `Importado${r.added === 1 ? "" : "s"} ${r.added} ${noun}`;
+      const skippedTotal = r.skipped.length + unreadable;
       const tail =
-        r.skipped.length > 0
-          ? ` · ${r.skipped.length} omitido${r.skipped.length === 1 ? "" : "s"}`
+        skippedTotal > 0
+          ? ` · ${skippedTotal} omitido${skippedTotal === 1 ? "" : "s"}`
           : "";
-      const tone = r.uploaded.length === 0 && r.skipped.length > 0 ? "warn" : "success";
+      const tone = r.added === 0 ? "warn" : "success";
       push(`${head}${tail}`, tone);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error subiendo archivos";
