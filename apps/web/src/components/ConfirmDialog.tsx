@@ -9,6 +9,12 @@ interface Props {
   cancelLabel?: string;
   tone?: "default" | "danger";
   busy?: boolean;
+  /**
+   * When true (default) the confirm button receives focus on open.
+   * Pass `false` when the dialog wraps an input/textarea that should
+   * own the initial focus — otherwise the button steals it back.
+   */
+  autoFocusConfirm?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   children?: React.ReactNode;
@@ -19,7 +25,7 @@ interface Props {
  *   - Esc cancels
  *   - Enter confirms (unless focus is inside a multiline input)
  *   - Click outside cancels
- *   - Confirm button auto-focuses
+ *   - Confirm button auto-focuses (unless `autoFocusConfirm` is false)
  *   - `busy` disables both buttons so a slow operation can't be triggered twice
  */
 export function ConfirmDialog({
@@ -30,6 +36,7 @@ export function ConfirmDialog({
   cancelLabel = "Cancelar",
   tone = "default",
   busy = false,
+  autoFocusConfirm = true,
   onConfirm,
   onCancel,
   children,
@@ -37,10 +44,10 @@ export function ConfirmDialog({
   const confirmRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !autoFocusConfirm) return;
     const t = window.setTimeout(() => confirmRef.current?.focus(), 30);
     return () => window.clearTimeout(t);
-  }, [open]);
+  }, [open, autoFocusConfirm]);
 
   useEffect(() => {
     if (!open) return;

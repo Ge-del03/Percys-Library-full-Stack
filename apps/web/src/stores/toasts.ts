@@ -46,6 +46,30 @@ const MAX_VISIBLE_TOASTS = 3;
 const COALESCE_WINDOW_MS = 4000;
 const DEFAULT_DURATION_MS = 2800;
 
+// Per-toast auto-dismiss timers, kept outside the store so they're not
+// reactive. We MUST clear the previous timer whenever a toast is
+// coalesced or replaced — otherwise the original countdown keeps
+// firing and the toast disappears prematurely.
+const dismissTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function clearDismissTimer(id: string) {
+  const t = dismissTimers.get(id);
+  if (t !== undefined) {
+    clearTimeout(t);
+    dismissTimers.delete(id);
+  }
+}
+
+function scheduleDismiss(id: string, durationMs: number, run: () => void) {
+  clearDismissTimer(id);
+  if (durationMs <= 0) return;
+  const handle = setTimeout(() => {
+    dismissTimers.delete(id);
+    run();
+  }, durationMs);
+  dismissTimers.set(id, handle);
+}
+
 export const useToasts = create<ToastState>((set, get) => ({
   toasts: [],
   push(message, tone = "info", options = {}) {
@@ -69,9 +93,9 @@ export const useToasts = create<ToastState>((set, get) => ({
           autoDismissAt,
         };
         set({ toasts: next });
-        if (autoDismissAt) {
-          setTimeout(() => get().dismiss(options.id as string), durationMs);
-        }
+        scheduleDismiss(options.id, durationMs, () =>
+          get().dismiss(options.id as string),
+        );
         return options.id;
       }
     }
@@ -88,18 +112,18 @@ export const useToasts = create<ToastState>((set, get) => ({
     );
     if (dupIndex >= 0) {
       const next = current.slice();
+      const existing = next[dupIndex];
       next[dupIndex] = {
-        ...next[dupIndex],
-        count: next[dupIndex].count + 1,
+        ...existing,
+        count: existing.count + 1,
         autoDismissAt,
-        action: options.action ?? next[dupIndex].action,
+        action: options.action ?? existing.action,
       };
       set({ toasts: next });
-      if (autoDismissAt) {
-        const id = next[dupIndex].id;
-        setTimeout(() => get().dismiss(id), durationMs);
-      }
-      return next[dupIndex].id;
+      scheduleDismiss(existing.id, durationMs, () =>
+        get().dismiss(existing.id),
+      );
+      return existing.id;
     }
 
     const id =
@@ -113,17 +137,22 @@ export const useToasts = create<ToastState>((set, get) => ({
       action: options.action,
       autoDismissAt,
     };
-    const merged = [...current, toast].slice(-MAX_VISIBLE_TOASTS);
-    set({ toasts: merged });
-    if (autoDismissAt) {
-      setTimeout(() => get().dismiss(id), durationMs);
+    const merged = [...current, toast];
+    // Drop oldest toasts beyond the cap and clear their pending timers.
+    while (merged.length > MAX_VISIBLE_TOASTS) {
+      const dropped = merged.shift();
+      if (dropped) clearDismissTimer(dropped.id);
     }
+    set({ toasts: merged });
+    scheduleDismiss(id, durationMs, () => get().dismiss(id));
     return id;
   },
   dismiss(id) {
+    clearDismissTimer(id);
     set({ toasts: get().toasts.filter((t) => t.id !== id) });
   },
   clear() {
+    for (const t of get().toasts) clearDismissTimer(t.id);
     set({ toasts: [] });
   },
 }));

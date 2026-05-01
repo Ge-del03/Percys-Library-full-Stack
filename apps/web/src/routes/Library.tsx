@@ -679,6 +679,9 @@ export function Library({ scope = "all" }: Props) {
         description="Escribe la categoría para los cómics seleccionados. Déjalo vacío para limpiar."
         confirmLabel="Aplicar"
         busy={bulkBusy}
+        // Let the inner <input autoFocus /> own focus so the user can
+        // start typing immediately.
+        autoFocusConfirm={false}
         onConfirm={() => void runBulk("category", categoryValue.trim() || null)}
         onCancel={() => {
           if (bulkBusy) return;
