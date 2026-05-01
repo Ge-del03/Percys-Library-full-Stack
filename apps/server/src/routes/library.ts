@@ -4,7 +4,8 @@ import fs from "node:fs";
 import multer from "multer";
 import { prisma } from "../db";
 import { config } from "../config";
-import { scanLibrary } from "../services/scanner";
+import { scanLibrary, registerComicPath } from "../services/scanner";
+import { detectFormat } from "../services/pipeline";
 import { asyncHandler } from "../lib/async-handler";
 import { getOwnerId } from "../lib/owner";
 
@@ -156,11 +157,34 @@ libraryRouter.post(
       accepted.push(file);
     }
 
-    const scan = accepted.length > 0 ? await scanLibrary(ownerId) : { added: 0, removed: 0, total: await prisma.comic.count({ where: { ownerId } }) };
+    // Register only the freshly-uploaded paths instead of running a full
+    // scan over `_uploads/`. Two reasons:
+    //   1. A full walk would resurrect files that were deleted from the
+    //      DB but linger on disk (e.g. unlink races, manual cleanup
+    //      pending), which is exactly the bug users were hitting where
+    //      "old comics come back when I import a new one".
+    //   2. It's much faster: parsing N new files instead of every file
+    //      that has ever been uploaded.
+    let added = 0;
+    for (const file of accepted) {
+      const fmt = detectFormat(file.path, false);
+      if (!fmt) continue;
+      try {
+        const result = await registerComicPath(ownerId, file.path, fmt);
+        if (result === "added") added += 1;
+      } catch (err) {
+        // Best-effort: skip the file but keep going so one bad upload
+        // doesn't sink the whole batch.
+        console.error("Failed to register uploaded comic", file.path, err);
+      }
+    }
+    const total = await prisma.comic.count({ where: { ownerId } });
     res.json({
       uploaded: accepted.map((f) => ({ name: f.originalname, size: f.size })),
       skipped,
-      ...scan,
+      added,
+      removed: 0,
+      total,
     });
   }),
 );

@@ -37,8 +37,24 @@ async function main() {
         res.status(500).json({ error: "Internal server error" });
     };
     app.use(errorHandler);
-    // Initial scan in the background; do not block startup.
-    (0, scanner_1.scanLibrary)().catch((err) => console.error("Initial scan failed:", err));
+    // Initial scan in the background; do not block startup. After the
+    // scan settles, clean up any files in `_uploads/` that no longer have
+    // a DB row (orphans from prior crashes / failed deletes / older
+    // versions that did a full rescan after every upload).
+    (0, scanner_1.scanLibrary)()
+        .then(async () => {
+        try {
+            const removed = await (0, scanner_1.cleanupUploadOrphans)();
+            if (removed > 0) {
+                // eslint-disable-next-line no-console
+                console.log(`[percys] cleaned up ${removed} orphaned upload(s)`);
+            }
+        }
+        catch (err) {
+            console.error("Upload orphan cleanup failed:", err);
+        }
+    })
+        .catch((err) => console.error("Initial scan failed:", err));
     app.listen(config_1.config.port, () => {
         // eslint-disable-next-line no-console
         console.log(`[percys] server listening on http://localhost:${config_1.config.port}`);

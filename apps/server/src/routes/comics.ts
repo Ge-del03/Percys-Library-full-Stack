@@ -105,8 +105,15 @@ comicsRouter.post(
               } else {
                 await fs.unlink(c.path);
               }
-            } catch {
-              // If file deletion fails we still remove the DB row.
+            } catch (err) {
+              // Log but still remove the DB row so the comic disappears
+              // from the user's library; the orphan-cleanup pass picks
+              // up the leftover file later.
+              // eslint-disable-next-line no-console
+              console.warn(
+                `[percys] could not delete file for comic ${c.id} at ${c.path}:`,
+                err,
+              );
             }
           }),
         );

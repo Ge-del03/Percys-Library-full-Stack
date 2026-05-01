@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useSettingsStore } from "../stores/settings";
 import clsx from "clsx";
@@ -77,13 +77,22 @@ export function Settings() {
     setNewThemeDraft((prev) => prev ?? { ...baseTheme });
   }, [baseTheme, isCreatingTheme, settings]);
 
+  // Warn the user once when they leave Settings while changes are still
+  // pending. `pendingRef` keeps the latest pendingPatch so the cleanup
+  // doesn't fire on every keystroke (the previous version re-ran on
+  // every change which spammed the notification rail).
+  const pendingRef = useRef({ pending: pendingPatch, autoApply: settingsView.autoApplySettings });
+  useEffect(() => {
+    pendingRef.current = { pending: pendingPatch, autoApply: settingsView.autoApplySettings };
+  }, [pendingPatch, settingsView.autoApplySettings]);
   useEffect(() => {
     return () => {
-      if (!settingsView.autoApplySettings && Object.keys(pendingPatch).length > 0) {
+      const { pending, autoApply } = pendingRef.current;
+      if (!autoApply && Object.keys(pending).length > 0) {
         push("Saliste sin aplicar cambios pendientes", "warn");
       }
     };
-  }, [pendingPatch, push, settingsView.autoApplySettings]);
+  }, [push]);
 
   if (!settings) return <div className="p-12 text-slate-500 animate-pulse">Cargando perfil...</div>;
 

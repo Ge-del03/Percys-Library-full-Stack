@@ -31,8 +31,12 @@ export function App() {
     const handler = async () => {
       try {
         const r = await scan();
-        push(`Biblioteca sincronizada: +${r.added} · -${r.removed} · total ${r.total}`, "success");
-      } catch (err) {
+        if (r.added === 0 && r.removed === 0) return; // no-op scans stay silent
+        const parts: string[] = [];
+        if (r.added) parts.push(`+${r.added}`);
+        if (r.removed) parts.push(`-${r.removed}`);
+        push(`Biblioteca sincronizada · ${parts.join(" · ")}`, "success");
+      } catch {
         push("Error al sincronizar la biblioteca", "error");
       }
     };
@@ -40,7 +44,10 @@ export function App() {
     return () => window.removeEventListener("pl-scan", handler);
   }, [scan, push]);
 
-  // Poll achievements and show toast when new ones unlock.
+  // Poll achievements and show a toast when new ones unlock. Multiple
+  // simultaneous unlocks (e.g. on first scan) are merged into a single
+  // toast so the user sees one celebratory notification rather than a
+  // wall of them.
   useEffect(() => {
     let cancelled = false;
     async function fetchOnce() {
@@ -49,24 +56,25 @@ export function App() {
         const list = await api.achievements();
         if (cancelled) return;
         const unlocked = list.filter((a) => a.unlocked).map((a) => a.id);
-        // first time fill
         if (knownAchievements.length === 0) {
+          // First fill — establish baseline silently so reloading the
+          // app doesn't fire dozens of "achievement unlocked" toasts.
           setKnownAchievements(unlocked);
           return;
         }
-        // detect new
-        for (const id of unlocked) {
-          if (!knownAchievements.includes(id)) {
-            const a = list.find((x) => x.id === id);
-            if (a) push(`${a.title} · ${a.description}`, "success");
-          }
+        const known = new Set(knownAchievements);
+        const fresh = unlocked.filter((id) => !known.has(id));
+        if (fresh.length === 1) {
+          const a = list.find((x) => x.id === fresh[0]);
+          if (a) push(`Logro · ${a.title}`, "success");
+        } else if (fresh.length > 1) {
+          push(`${fresh.length} logros desbloqueados`, "success");
         }
         setKnownAchievements(unlocked);
-      } catch (err) {
+      } catch {
         // ignore polling errors
       }
     }
-    // initial fetch
     void fetchOnce();
     const iv = setInterval(() => void fetchOnce(), 20_000);
     return () => { cancelled = true; clearInterval(iv); };
