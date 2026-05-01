@@ -6,6 +6,7 @@ import { useSettingsStore } from "../stores/settings";
 import { useToasts } from "../stores/toasts";
 import { CoverCard } from "../components/CoverCard";
 import { Avatar } from "../components/AvatarPresets";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 
 const ACCEPTED_EXTENSIONS = [".cbz", ".cbr", ".pdf", ".zip", ".rar"] as const;
 const RETURNING_BANNER_KEY_PREFIX = "pl_returning_banner_seen_";
@@ -101,13 +102,21 @@ export function Library({ scope = "all" }: Props) {
     }
     try {
       const r = await upload(files);
-      if (r.skipped.length > 0) {
-        push(`Se omitieron ${r.skipped.length} archivo(s) duplicados`, "warn");
-      }
-      push(
-        `Subidos ${r.uploaded.length} archivo${r.uploaded.length === 1 ? "" : "s"} · +${r.added} nuevos`,
-        "success",
-      );
+      // Single consolidated toast: how many were really registered in
+      // the library, plus a tail when some were skipped. We base the
+      // count on `r.added` (DB rows created) instead of
+      // `r.uploaded.length` (files written to disk) so a batch of
+      // unreadable archives doesn't claim a misleading success.
+      const unreadable = Math.max(0, r.uploaded.length - r.added);
+      const noun = r.added === 1 ? "cómic" : "cómics";
+      const head = `Importado${r.added === 1 ? "" : "s"} ${r.added} ${noun}`;
+      const skippedTotal = r.skipped.length + unreadable;
+      const tail =
+        skippedTotal > 0
+          ? ` · ${skippedTotal} omitido${skippedTotal === 1 ? "" : "s"}`
+          : "";
+      const tone = r.added === 0 ? "warn" : "success";
+      push(`${head}${tail}`, tone);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error subiendo archivos";
       push(msg, "error");
@@ -164,29 +173,56 @@ export function Library({ scope = "all" }: Props) {
   }, [comics, query, filter, scope, sortMode]);
 
   async function onScan() {
-    const r = await scan();
-    push(`Biblioteca actualizada: +${r.added} · -${r.removed} · total ${r.total}`, "success");
+    try {
+      const r = await scan();
+      // Quiet success when nothing changed; otherwise summarise the
+      // delta tightly without three separate counters.
+      if (r.added === 0 && r.removed === 0) {
+        push("Biblioteca al día", "info");
+      } else {
+        const parts: string[] = [];
+        if (r.added) parts.push(`+${r.added}`);
+        if (r.removed) parts.push(`-${r.removed}`);
+        push(`Biblioteca actualizada · ${parts.join(" · ")}`, "success");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error al escanear";
+      push(msg, "error");
+    }
   }
 
   async function runBulk(op: import("../lib/api").BulkOp, category?: string | null) {
     const ids = deleteTargets.length > 0 ? deleteTargets : Array.from(selected);
     if (ids.length === 0) {
       setDeleteConfirmOpen(false);
+      setCategoryEditorOpen(false);
       push("Selecciona al menos un cómic", "warn");
       return;
     }
+    setBulkBusy(true);
     try {
       const r = await bulk(ids, op, category);
-      push(`Hecho · ${r.affected} actualizado${r.affected === 1 ? "" : "s"}`, "success");
+      // Bulk feedback is intentionally low-noise: a single toast per
+      // user action, never one per affected row.
+      const verb =
+        op === "delete"
+          ? `Eliminado${r.affected === 1 ? "" : "s"}`
+          : `Actualizado${r.affected === 1 ? "" : "s"}`;
+      push(`${verb} · ${r.affected}`, "success");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error en operación masiva";
+      push(msg, "error");
+    } finally {
+      // Always tear down the modals + selection regardless of success or
+      // failure — leaving the confirm dialog stuck open after the user
+      // pressed "Confirmar" was the most common complaint.
       setSelected(new Set());
       setSelectMode(false);
       setDeleteConfirmOpen(false);
       setDeleteTargets([]);
       setCategoryEditorOpen(false);
       setCategoryValue("");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Error en operación masiva";
-      push(msg, "error");
+      setBulkBusy(false);
     }
   }
 
@@ -226,6 +262,7 @@ export function Library({ scope = "all" }: Props) {
   const [categoryEditorOpen, setCategoryEditorOpen] = useState(false);
   const [categoryValue, setCategoryValue] = useState("");
   const [deleteTargets, setDeleteTargets] = useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   useEffect(() => {
     const el = scrollContainerRef.current;
@@ -234,6 +271,39 @@ export function Library({ scope = "all" }: Props) {
     el.addEventListener("scroll", onScroll);
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Keyboard shortcuts active while the user is in "Gestionar" mode:
+  //   Esc           — exit select mode
+  //   Delete/Backsp — open the delete confirmation for the current selection
+  //   Ctrl/⌘ + A    — select every visible comic
+  // We bail out when focus is in an input/textarea or when a confirm
+  // dialog is already open so we never steal real keystrokes.
+  useEffect(() => {
+    if (!selectMode) return;
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable) return;
+      if (deleteConfirmOpen || categoryEditorOpen) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setSelectMode(false);
+        setSelected(new Set());
+        return;
+      }
+      if ((e.key === "Delete" || e.key === "Backspace") && selected.size > 0) {
+        e.preventDefault();
+        setDeleteConfirmOpen(true);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        setSelected(new Set(visible.map((c) => c.id)));
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectMode, selected, visible, deleteConfirmOpen, categoryEditorOpen]);
 
   return (
     <div
@@ -575,12 +645,12 @@ export function Library({ scope = "all" }: Props) {
             </div>
             
             <div className="flex-1 flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-              <ActionBtn onClick={() => void runBulk("favorite")} icon="★" label="Favorito" disabled={selected.size === 0} />
-              <ActionBtn onClick={() => void runBulk("unfavorite")} icon="☆" label="Quitar" disabled={selected.size === 0} />
-              <ActionBtn onClick={() => void runBulk("markCompleted")} icon="✅" label="Leído" disabled={selected.size === 0} />
-              <ActionBtn onClick={() => void runBulk("markUnread")} icon="📖" label="Pendiente" disabled={selected.size === 0} />
-              <ActionBtn onClick={() => setCategoryEditorOpen(true)} icon="📁" label="Categoría" disabled={selected.size === 0} />
-              <ActionBtn onClick={() => setDeleteConfirmOpen(true)} icon="🗑️" label="Eliminar" danger disabled={selected.size === 0} />
+              <ActionBtn onClick={() => void runBulk("favorite")} icon="★" label="Favorito" disabled={selected.size === 0 || bulkBusy} />
+              <ActionBtn onClick={() => void runBulk("unfavorite")} icon="☆" label="Quitar fav" disabled={selected.size === 0 || bulkBusy} />
+              <ActionBtn onClick={() => void runBulk("markCompleted")} icon="✅" label="Leído" disabled={selected.size === 0 || bulkBusy} />
+              <ActionBtn onClick={() => void runBulk("markUnread")} icon="📖" label="Pendiente" disabled={selected.size === 0 || bulkBusy} />
+              <ActionBtn onClick={() => setCategoryEditorOpen(true)} icon="📁" label="Categoría" disabled={selected.size === 0 || bulkBusy} />
+              <ActionBtn onClick={() => setDeleteConfirmOpen(true)} icon="🗑️" label="Eliminar" danger disabled={selected.size === 0 || bulkBusy} />
             </div>
 
             <button 
@@ -593,41 +663,44 @@ export function Library({ scope = "all" }: Props) {
           </div>
         </div>
       )}
-      {deleteConfirmOpen && (
-        <PageModal
-          title="Eliminar de biblioteca"
-          description={`Se eliminarán ${deleteTargets.length || selected.size} cómics de la biblioteca y sus archivos locales.`}
-          confirmLabel="Confirmar eliminación"
-          cancelLabel="Cancelar"
-          tone="danger"
-          onConfirm={() => void runBulk("delete")}
-          onCancel={() => {
-            setDeleteConfirmOpen(false);
-            setDeleteTargets([]);
-          }}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        title="Eliminar de biblioteca"
+        description={`Se eliminarán ${deleteTargets.length || selected.size} cómic${(deleteTargets.length || selected.size) === 1 ? "" : "s"} de la biblioteca y sus archivos locales. Esta acción no se puede deshacer.`}
+        confirmLabel="Confirmar eliminación"
+        tone="danger"
+        busy={bulkBusy}
+        onConfirm={() => void runBulk("delete")}
+        onCancel={() => {
+          if (bulkBusy) return;
+          setDeleteConfirmOpen(false);
+          setDeleteTargets([]);
+        }}
+      />
+      <ConfirmDialog
+        open={categoryEditorOpen}
+        title="Asignar categoría"
+        description="Escribe la categoría para los cómics seleccionados. Déjalo vacío para limpiar."
+        confirmLabel="Aplicar"
+        busy={bulkBusy}
+        // Let the inner <input autoFocus /> own focus so the user can
+        // start typing immediately.
+        autoFocusConfirm={false}
+        onConfirm={() => void runBulk("category", categoryValue.trim() || null)}
+        onCancel={() => {
+          if (bulkBusy) return;
+          setCategoryEditorOpen(false);
+          setCategoryValue("");
+        }}
+      >
+        <input
+          autoFocus
+          value={categoryValue}
+          onChange={(e) => setCategoryValue(e.target.value)}
+          placeholder="Ejemplo: Shonen, DC, Pendientes..."
+          className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50"
         />
-      )}
-      {categoryEditorOpen && (
-        <PageModal
-          title="Asignar categoría"
-          description="Escribe la categoría para los cómics seleccionados. Déjalo vacío para limpiar."
-          confirmLabel="Aplicar"
-          cancelLabel="Cancelar"
-          tone="default"
-          onConfirm={() => void runBulk("category", categoryValue.trim() || null)}
-          onCancel={() => {
-            setCategoryEditorOpen(false);
-            setCategoryValue("");
-          }}
-        >
-          <input
-            value={categoryValue}
-            onChange={(e) => setCategoryValue(e.target.value)}
-            placeholder="Ejemplo: Shonen, DC, Pendientes..."
-            className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50"
-          />
-        </PageModal>
-      )}
+      </ConfirmDialog>
       {(dragOver || uploading) && (
         <div
           className="pointer-events-auto fixed inset-0 z-[100] flex items-center justify-center bg-[#030408]/90 backdrop-blur-xl animate-fade-in"
@@ -773,44 +846,4 @@ function ActionBtn({ onClick, icon, label, danger, disabled }: { onClick: () => 
 }
 
 
-function PageModal({
-  title,
-  description,
-  confirmLabel,
-  cancelLabel,
-  tone,
-  onConfirm,
-  onCancel,
-  children,
-}: {
-  title: string;
-  description: string;
-  confirmLabel: string;
-  cancelLabel: string;
-  tone: "default" | "danger";
-  onConfirm: () => void;
-  onCancel: () => void;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-ink-900 p-6 shadow-2xl">
-        <h3 className="text-lg font-bold text-white">{title}</h3>
-        <p className="mt-2 text-sm text-slate-300">{description}</p>
-        {children ? <div className="mt-4">{children}</div> : null}
-        <div className="mt-5 flex justify-end gap-2">
-          <button onClick={onCancel} className="pl-btn">{cancelLabel}</button>
-          <button
-            onClick={onConfirm}
-            className={clsx(
-              "rounded-xl px-4 py-2 text-sm font-bold text-white",
-              tone === "danger" ? "bg-red-600 hover:bg-red-500" : "bg-blue-600 hover:bg-blue-500",
-            )}
-          >
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+// PageModal was replaced by the shared <ConfirmDialog> in components/.

@@ -103,8 +103,12 @@ exports.comicsRouter.post("/bulk", (0, async_handler_1.asyncHandler)(async (req,
                         await promises_1.default.unlink(c.path);
                     }
                 }
-                catch {
-                    // If file deletion fails we still remove the DB row.
+                catch (err) {
+                    // Log but still remove the DB row so the comic disappears
+                    // from the user's library; the orphan-cleanup pass picks
+                    // up the leftover file later.
+                    // eslint-disable-next-line no-console
+                    console.warn(`[percys] could not delete file for comic ${c.id} at ${c.path}:`, err);
                 }
             }));
             const r = await db_1.prisma.comic.deleteMany({ where: { ownerId, id: { in: ids } } });

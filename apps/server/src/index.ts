@@ -8,7 +8,7 @@ import { comicsRouter } from "./routes/comics";
 import { settingsRouter } from "./routes/settings";
 import { statsRouter } from "./routes/stats";
 import { bookmarksRouter } from "./routes/bookmarks";
-import { scanLibrary } from "./services/scanner";
+import { scanLibrary, cleanupUploadOrphans } from "./services/scanner";
 
 async function main() {
   fs.mkdirSync(config.libraryPath, { recursive: true });
@@ -36,8 +36,23 @@ async function main() {
   };
   app.use(errorHandler);
 
-  // Initial scan in the background; do not block startup.
-  scanLibrary().catch((err) => console.error("Initial scan failed:", err));
+  // Initial scan in the background; do not block startup. After the
+  // scan settles, clean up any files in `_uploads/` that no longer have
+  // a DB row (orphans from prior crashes / failed deletes / older
+  // versions that did a full rescan after every upload).
+  scanLibrary()
+    .then(async () => {
+      try {
+        const removed = await cleanupUploadOrphans();
+        if (removed > 0) {
+          // eslint-disable-next-line no-console
+          console.log(`[percys] cleaned up ${removed} orphaned upload(s)`);
+        }
+      } catch (err) {
+        console.error("Upload orphan cleanup failed:", err);
+      }
+    })
+    .catch((err) => console.error("Initial scan failed:", err));
 
   app.listen(config.port, () => {
     // eslint-disable-next-line no-console
