@@ -74,7 +74,7 @@ export function Welcome() {
     setReadingMode(settings.readingMode || "paged-h");
     setDirection(settings.direction || "ltr");
     setCoverSize(settings.coverSize || "md");
-    if (settings.userName && settings.userName !== "Percy") setFirst(settings.userName);
+    if (settings.userName) setFirst(settings.userName);
     if (settings.userLastName) setLast(settings.userLastName);
     setAvatar(settings.avatar ?? null);
   }, [settings]);
