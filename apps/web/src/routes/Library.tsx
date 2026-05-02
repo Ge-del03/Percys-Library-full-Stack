@@ -248,7 +248,7 @@ export function Library({ scope = "all" }: Props) {
       .slice(0, 8);
   }, [comics]);
 
-  const userName = settings?.userName ?? "Percy";
+  const userName = (settings?.userName?.trim() || "Lector");
   const coverSize = settings?.coverSize ?? "md";
 
   const heroComic = continueReading[0] || recentlyAdded[0];
@@ -411,7 +411,7 @@ export function Library({ scope = "all" }: Props) {
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="font-semibold">Bienvenido de vuelta, {userName}</div>
-              <div className="text-xs text-blue-100/80">La pantalla de bienvenida completa solo aparece la primera vez.</div>
+              <div className="text-xs text-blue-100/80">Puedes volver a la bienvenida desde Configuración → Perfil.</div>
             </div>
             <button
               type="button"

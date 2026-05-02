@@ -33,7 +33,39 @@ export function useKeybinds(b: Bindings, enabled = true) {
   useEffect(() => {
     if (!enabled) return;
     function onKey(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      // Bail out only when the user is typing into a real text field —
+      // not when focus is on the page/zoom slider (`<input type="range">`)
+      // or a checkbox, because those don't accept text and we want our
+      // global reader shortcuts (Arrow keys, Esc, etc.) to take over even
+      // if the slider happens to hold focus. Without this, ArrowDown on
+      // a focused slider would silently decrement the slider instead of
+      // scrolling the comic, which is exactly the "click outside first"
+      // bug users keep hitting.
+      const target = e.target;
+      if (target instanceof HTMLTextAreaElement) return;
+      if (target instanceof HTMLInputElement) {
+        const textTypes = new Set([
+          "text",
+          "search",
+          "email",
+          "password",
+          "number",
+          "url",
+          "tel",
+          "date",
+          "datetime-local",
+          "month",
+          "time",
+          "week",
+        ]);
+        if (textTypes.has(target.type)) return;
+        // For non-text inputs (range, checkbox, radio, color, file…) we
+        // still want our shortcut to run, but we also blur the control
+        // so subsequent presses go to the document body and the slider
+        // stops jittering as the user hits arrow keys.
+        target.blur();
+      }
+      if (target instanceof HTMLElement && target.isContentEditable) return;
       // Ctrl+0 resets zoom. Handled before the digit-jumpFraction branch
       // because that branch explicitly excludes ctrl-modified digits.
       if ((e.ctrlKey || e.metaKey) && e.key === "0" && b.resetZoom) {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Route, Routes, useLocation, NavLink } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate, NavLink } from "react-router-dom";
 import clsx from "clsx";
 import { Sidebar } from "./components/Sidebar";
 import { Toaster } from "./components/Toaster";
@@ -9,16 +9,20 @@ import { Reader } from "./routes/Reader";
 import { Stats } from "./routes/Stats";
 import { Achievements } from "./routes/Achievements";
 import { Settings } from "./routes/Settings";
+import { Welcome } from "./routes/Welcome";
 import { useSettingsStore } from "./stores/settings";
 import { useLibraryStore } from "./stores/library";
 import { useToasts } from "./stores/toasts";
 
 export function App() {
   const loadSettings = useSettingsStore((s) => s.load);
+  const settings = useSettingsStore((s) => s.settings);
   const scan = useLibraryStore((s) => s.scan);
   const push = useToasts((s) => s.push);
   const location = useLocation();
+  const navigate = useNavigate();
   const isReader = location.pathname.startsWith("/read/");
+  const isWelcome = location.pathname === "/welcome";
   const animationsEnabled = useSettingsStore((s) => s.settings?.animationsEnabled ?? true);
   const [knownAchievements, setKnownAchievements] = useState<string[]>([]);
   // achievements api will be imported dynamically inside the effect
@@ -27,7 +31,18 @@ export function App() {
     void loadSettings();
   }, [loadSettings]);
 
+  // Onboarding gate: first-time users (no settings or hasOnboarded=false)
+  // are routed to the welcome screen. We wait for settings to load so we
+  // never bounce a returning user away from a deep link on a slow request.
   useEffect(() => {
+    if (!settings) return;
+    if (!settings.hasOnboarded && !isWelcome) {
+      navigate("/welcome", { replace: true });
+    }
+  }, [settings, isWelcome, navigate]);
+
+  useEffect(() => {
+    if (!settings?.hasOnboarded) return; // don't poke the library before onboarding
     const handler = async () => {
       try {
         const r = await scan();
@@ -42,13 +57,15 @@ export function App() {
     };
     window.addEventListener("pl-scan", handler);
     return () => window.removeEventListener("pl-scan", handler);
-  }, [scan, push]);
+  }, [scan, push, settings?.hasOnboarded]);
 
   // Poll achievements and show a toast when new ones unlock. Multiple
   // simultaneous unlocks (e.g. on first scan) are merged into a single
   // toast so the user sees one celebratory notification rather than a
-  // wall of them.
+  // wall of them. Skipped while the user is still on the welcome screen
+  // so the achievements feed doesn't fire under a half-built profile.
   useEffect(() => {
+    if (!settings?.hasOnboarded) return;
     let cancelled = false;
     async function fetchOnce() {
       try {
@@ -78,7 +95,20 @@ export function App() {
     void fetchOnce();
     const iv = setInterval(() => void fetchOnce(), 20_000);
     return () => { cancelled = true; clearInterval(iv); };
-  }, [knownAchievements, push]);
+  }, [knownAchievements, push, settings?.hasOnboarded]);
+
+  if (isWelcome) {
+    return (
+      <ThemeProvider>
+        <div data-anim={animationsEnabled ? "1" : "0"} className="h-full w-full">
+          <Routes>
+            <Route path="/welcome" element={<Welcome />} />
+          </Routes>
+        </div>
+        <Toaster />
+      </ThemeProvider>
+    );
+  }
 
   if (isReader) {
     return (
@@ -105,6 +135,7 @@ export function App() {
               <Route path="/stats" element={<Stats />} />
               <Route path="/achievements" element={<Achievements />} />
               <Route path="/settings/*" element={<Settings />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
         </main>
