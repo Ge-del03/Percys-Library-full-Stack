@@ -292,11 +292,41 @@ export function Settings() {
 
             <Field label="Nombre para mostrar">
               <input
-                value={settingsView.userName}
+                value={settingsView.userName ?? ""}
                 onChange={(e) => void patch("userName", e.target.value)}
                 placeholder="¿Cómo te llamas?"
+                maxLength={40}
                 className="w-full rounded-xl bg-white/[0.03] border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-all shadow-inner"
               />
+            </Field>
+
+            <Field label="Apellido (opcional)">
+              <input
+                value={settingsView.userLastName ?? ""}
+                onChange={(e) => void patch("userLastName", e.target.value || null)}
+                placeholder="Tu apellido"
+                maxLength={40}
+                className="w-full rounded-xl bg-white/[0.03] border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-all shadow-inner"
+              />
+            </Field>
+
+            <Field label="Pantalla de bienvenida">
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await update({ hasOnboarded: false });
+                    push("Te llevaremos a la bienvenida en un momento", "info");
+                    setTimeout(() => navigate("/welcome", { replace: true }), 250);
+                  }}
+                  className="pl-btn text-xs"
+                >
+                  Volver a verla
+                </button>
+                <span className="text-xs text-slate-500">
+                  Vuelve a abrir la bienvenida sin perder tu biblioteca.
+                </span>
+              </div>
             </Field>
           </div>
         </section>

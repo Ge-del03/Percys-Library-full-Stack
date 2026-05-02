@@ -105,7 +105,7 @@ export function Sidebar() {
         >
           <Avatar value={settings?.avatar ?? null} size={32} className="rounded-lg shadow-md shadow-black/50" fallbackText={`${settings?.userName?.[0] ?? ""}${settings?.userLastName?.[0] ?? ""}`} />
           <div className="flex flex-col min-w-0">
-            <span className="truncate font-semibold">{settings?.userName ?? "Percy"}</span>
+            <span className="truncate font-semibold">{settings?.userName?.trim() || "Lector"}</span>
             <span className="text-[10px] text-slate-500 truncate">Socio de lectura</span>
           </div>
         </NavLink>

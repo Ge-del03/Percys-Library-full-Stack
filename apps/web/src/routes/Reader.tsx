@@ -56,33 +56,53 @@ export function Reader() {
   const lastSavedZoom = useRef<number | null>(null);
   const autoAdvanceFired = useRef(false);
 
-  // Load comic + initial progress
+  // Load comic + initial progress. If the URL points at a comic that
+  // no longer exists (e.g. deleted while open in a tab, then reload),
+  // bounce back to the library with a friendly toast instead of leaving
+  // the user staring at an empty reader shell forever.
   useEffect(() => {
-    if (!id) return;
+    if (!id) {
+      navigate("/", { replace: true });
+      return;
+    }
     let cancelled = false;
-    void api.comic(id).then((c) => {
-      if (cancelled) return;
-      setComic(c);
-      setPage(Math.min(c.currentPage, Math.max(0, c.pageCount - 1)));
-      // Restore the last zoom this comic was read with (if any). The
-      // ref is primed too so the persistence effect doesn't immediately
-      // re-save the same value back to the server on hydration.
-      const z = c.lastZoom ?? 1;
-      setZoom(z);
-      lastSavedZoom.current = z;
-    });
+    setComic(null);
+    setPage(0);
+    setZoom(1);
+    api.comic(id)
+      .then((c) => {
+        if (cancelled) return;
+        setComic(c);
+        setPage(Math.min(c.currentPage, Math.max(0, c.pageCount - 1)));
+        // Restore the last zoom this comic was read with (if any). The
+        // ref is primed too so the persistence effect doesn't immediately
+        // re-save the same value back to the server on hydration.
+        const z = c.lastZoom ?? 1;
+        setZoom(z);
+        lastSavedZoom.current = z;
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : "No se pudo abrir el cómic";
+        push(msg, "error");
+        navigate("/", { replace: true });
+      });
     // Reset next-in-series state on comic change.
     setNextComic(null);
     setNextDismissed(false);
     autoAdvanceFired.current = false;
-    void api.nextComic(id).then((r) => {
-      if (cancelled) return;
-      setNextComic(r.next);
-    });
+    api.nextComic(id)
+      .then((r) => {
+        if (cancelled) return;
+        setNextComic(r.next);
+      })
+      .catch(() => {
+        // next-in-series is best-effort; ignore failures.
+      });
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, navigate, push]);
 
   useEffect(() => {
     setStripVisible(settings?.showThumbStrip ?? true);
@@ -286,7 +306,10 @@ export function Reader() {
   // Reader-centric keyboard zoom for convenience (+ / - / 0).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const target = e.target;
+      if (target instanceof HTMLTextAreaElement) return;
+      if (target instanceof HTMLInputElement && (target.type === "text" || target.type === "search" || target.type === "number" || target.type === "email" || target.type === "url" || target.type === "tel")) return;
+      if (target instanceof HTMLElement && target.isContentEditable) return;
       if (e.key === "+" || e.key === "=") {
         e.preventDefault();
         setZoom((z) => clampZoom(z + ZOOM_STEP));
@@ -516,6 +539,8 @@ export function Reader() {
               step={0.01}
               value={zoom}
               onChange={(e) => setZoom(clampZoom(parseFloat(e.target.value)))}
+              onPointerUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
+              aria-label="Nivel de zoom"
               className="w-20 accent-accent"
               title="Nivel de zoom"
             />
@@ -595,6 +620,11 @@ export function Reader() {
               const v = parseInt(e.target.value, 10);
               setPage(Math.max(0, Math.min(v, maxStartPage)));
             }}
+            // After a click/drag, drop focus so the slider stops eating
+            // ArrowUp/Down and the user's next keypress flows into the
+            // global reader shortcuts (scroll / page turn) instead.
+            onPointerUp={(e) => (e.currentTarget as HTMLInputElement).blur()}
+            aria-label="Página actual"
             className="flex-1 accent-accent"
           />
           <span className="text-xs text-ink-200">{Math.round(progressPct)}%</span>

@@ -25,8 +25,10 @@ const avatarSchema = z
   .regex(/^(preset:[a-z0-9-]{1,32}|data:image\/(png|jpeg|webp|svg\+xml);base64,[A-Za-z0-9+/=]+)$/);
 
 const settingsSchema = z.object({
-  userName: z.string().min(1).max(40).optional(),
-  userLastName: z.string().max(40).optional(),
+  // userName may be empty while the user is still onboarding; the UI
+  // falls back to a "Lector" placeholder until they fill it in.
+  userName: z.string().max(40).optional(),
+  userLastName: z.string().max(40).nullable().optional(),
   // Theme id matches one of the presets in apps/web/src/lib/themes.ts. We
   // keep this open-ended (string) so the client can ship new themes
   // without a backend change. The shape is constrained to be safe.
@@ -81,7 +83,7 @@ settingsRouter.post(
       prisma.settings.update({
         where: { ownerId },
         data: {
-          userName: "Percy",
+          userName: "",
           userLastName: null,
           avatar: null,
           dailyGoalPages: 0,
