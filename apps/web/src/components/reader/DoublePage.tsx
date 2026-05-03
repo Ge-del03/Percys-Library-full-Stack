@@ -17,6 +17,8 @@ interface Props {
   autoCrop: boolean;
   onClickZone: (zone: "prev" | "next" | "ui") => void;
   scrollRef?: React.MutableRefObject<HTMLDivElement | null>;
+  imageQuality?: "high" | "balanced" | "fast";
+  pageGap?: number;
 }
 
 /**
@@ -31,7 +33,7 @@ interface Props {
  * always clicks the "forward" side of the spread to advance. When
  * zoom > 1, drag-to-pan moves the spread within the viewport.
  */
-export function DoublePage({ comicId, page, pageCount, fitMode, zoom, rtl, autoCrop, onClickZone, scrollRef }: Props) {
+export function DoublePage({ comicId, page, pageCount, fitMode, zoom, rtl, autoCrop, onClickZone, scrollRef, imageQuality, pageGap = 0 }: Props) {
   // The spread always pairs `page` (low index) with `page+1` (high index).
   // RTL only changes which one ends up on the *left* of the screen so the
   // reader's eye lands on the lower-index page first.
@@ -78,15 +80,15 @@ export function DoublePage({ comicId, page, pageCount, fitMode, zoom, rtl, autoC
     >
       <div
         className={clsx(
-          "flex h-full w-full items-center justify-center gap-0 will-change-transform",
+          "flex h-full w-full items-center justify-center will-change-transform",
           !dragging && "transition-transform duration-200",
         )}
-        style={{ transform: `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})` }}
+        style={{ transform: `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`, gap: `${pageGap}px` }}
       >
         {pages.map((p) => (
           <img
             key={`${comicId}-${p}`}
-            src={api.pageUrl(comicId, p, autoCrop)}
+            src={api.pageUrl(comicId, p, autoCrop, imageQuality)}
             alt={`Página ${p + 1}`}
             draggable={false}
             className={clsx("reader-page-img object-contain", fitClass())}

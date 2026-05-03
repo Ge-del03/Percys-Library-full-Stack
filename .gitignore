@@ -39,6 +39,9 @@ apps/web/.env
 # to recreate your dev.db locally.
 apps/server/prisma/*.db
 apps/server/prisma/*.db-journal
+**/prisma/*.db
+**/prisma/*.db-journal
+apps/server/prisma/prisma/
 
 # User-imported comics and derived caches. These belong to the running
 # user, not the repo, and contain test data we never want shipped.

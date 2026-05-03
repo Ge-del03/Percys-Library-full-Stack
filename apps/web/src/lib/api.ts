@@ -50,6 +50,22 @@ export interface SettingsDto {
   hasOnboarded: boolean;
   autoApplySettings: boolean;
   animationsEnabled: boolean;
+  animPageTransitions: boolean;
+  animHoverParallax: boolean;
+  animHudFades: boolean;
+  animMicroInteractions: boolean;
+  animBrandShimmer: boolean;
+  animIntensity: number;
+  readerPageGap: number;
+  readerMaxWidth: number;
+  readerSidePadding: number;
+  readerPagePreload: number;
+  imageQuality: "high" | "balanced" | "fast";
+  customCss: string;
+  backgroundImage: string | null;
+  backgroundDim: number;
+  fontScale: number;
+  statsRange: "7d" | "30d" | "90d" | "1y" | "all";
 }
 
 export interface BookmarkDto {
@@ -69,16 +85,51 @@ export interface NextComic {
   completed: boolean;
 }
 
+export interface TopComic {
+  id: string;
+  title: string;
+  format: ComicSummary["format"];
+  pageCount: number;
+  currentPage: number;
+  completed: boolean;
+  pagesEstimated: number; // for sorting
+}
+
+export interface BreakdownEntry {
+  key: string;
+  count: number;
+}
+
 export interface StatsDto {
   totalComics: number;
   completedComics: number;
+  inProgressComics: number;
   pagesRead: number;
   favorites: number;
   currentStreak: number;
   longestStreak: number;
   todayPages: number;
   bestDayPages: number;
+  /** Calendar-day reading volume rows. */
   days: { date: string; pagesRead: number }[];
+  /** Total active reading days (any pagesRead > 0). */
+  totalReadingDays: number;
+  /** Days active in last 7 / 30 days. */
+  daysActive7: number;
+  daysActive30: number;
+  /** Distribution by format and category (ordered by count desc). */
+  formats: BreakdownEntry[];
+  categories: BreakdownEntry[];
+  /** Top 5 most-read comics by progress. */
+  topRead: TopComic[];
+  /** "Almost there" — in-progress comics ≥ 70% complete, top 3. */
+  almostDone: TopComic[];
+  /** Last completed comic, if any. */
+  lastCompleted: TopComic | null;
+  /** Total bytes managed (BigInt → number; rough). */
+  totalBytes: number;
+  /** Average pages per active day. */
+  averagePagesPerActiveDay: number;
 }
 
 export type BulkOp =
@@ -205,8 +256,15 @@ export const api = {
     jsonFetch<{ ok: boolean }>(`/api/bookmarks/${bid}`, { method: "DELETE" }),
 
   coverUrl: (id: string) => `/api/comics/${id}/cover`,
-  pageUrl: (id: string, n: number, autoCrop = false) =>
-    `/api/comics/${id}/pages/${n}?crop=${autoCrop ? 1 : 0}`,
+  pageUrl: (
+    id: string,
+    n: number,
+    autoCrop = false,
+    quality?: "high" | "balanced" | "fast",
+  ) => {
+    const base = `/api/comics/${id}/pages/${n}?crop=${autoCrop ? 1 : 0}`;
+    return quality ? `${base}&q=${quality}` : base;
+  },
   thumbUrl: (id: string, n: number) => `/api/comics/${id}/thumbs/${n}`,
 };
 import { getOwnerId } from "./owner";

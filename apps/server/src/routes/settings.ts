@@ -56,6 +56,29 @@ const settingsSchema = z.object({
   hasOnboarded: z.boolean().optional(),
   autoApplySettings: z.boolean().optional(),
   animationsEnabled: z.boolean().optional(),
+  animPageTransitions: z.boolean().optional(),
+  animHoverParallax: z.boolean().optional(),
+  animHudFades: z.boolean().optional(),
+  animMicroInteractions: z.boolean().optional(),
+  animBrandShimmer: z.boolean().optional(),
+  animIntensity: z.number().int().min(0).max(100).optional(),
+  readerPageGap: z.number().int().min(0).max(80).optional(),
+  readerMaxWidth: z.number().int().min(0).max(2400).optional(),
+  readerSidePadding: z.number().int().min(0).max(120).optional(),
+  readerPagePreload: z.number().int().min(0).max(20).optional(),
+  imageQuality: z.enum(["high", "balanced", "fast"]).optional(),
+  // Custom CSS is sandboxed only by length; the client appends it to its
+  // own runtime stylesheet, so we just keep the row from blowing up.
+  customCss: z.string().max(20_000).optional(),
+  // backgroundImage shares the avatar storage shape (data URI or empty).
+  backgroundImage: z
+    .string()
+    .max(1_500_000)
+    .nullable()
+    .optional(),
+  backgroundDim: z.number().int().min(0).max(100).optional(),
+  fontScale: z.number().int().min(80).max(130).optional(),
+  statsRange: z.enum(["7d", "30d", "90d", "1y", "all"]).optional(),
 });
 
 settingsRouter.put(
@@ -92,6 +115,20 @@ settingsRouter.post(
           animationsEnabled: true,
           customThemes: "[]",
           keyboardShortcuts: "{}",
+          customCss: "",
+          backgroundImage: null,
+          // Reset visual companions too so a fresh profile starts with
+          // defaults end-to-end (no stale dim/font scale/anim intensity
+          // bleeding into a brand-new onboarding flow).
+          backgroundDim: 60,
+          fontScale: 100,
+          animIntensity: 100,
+          animPageTransitions: true,
+          animHoverParallax: true,
+          animHudFades: true,
+          animMicroInteractions: true,
+          animBrandShimmer: true,
+          statsRange: "30d",
         },
       }),
     ]);
@@ -128,6 +165,22 @@ settingsRouter.post(
         keyboardShortcuts: "{}",
         autoApplySettings: true,
         animationsEnabled: true,
+        animPageTransitions: true,
+        animHoverParallax: true,
+        animHudFades: true,
+        animMicroInteractions: true,
+        animBrandShimmer: true,
+        animIntensity: 100,
+        readerPageGap: 8,
+        readerMaxWidth: 900,
+        readerSidePadding: 0,
+        readerPagePreload: 3,
+        imageQuality: "balanced",
+        customCss: "",
+        backgroundImage: null,
+        backgroundDim: 60,
+        fontScale: 100,
+        statsRange: "30d",
       },
     });
     res.json(updated);

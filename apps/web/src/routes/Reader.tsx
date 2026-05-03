@@ -112,6 +112,11 @@ export function Reader() {
   const fitMode = settings?.fitMode ?? "fit-width";
   const mode = settings?.readingMode ?? "paged-h";
   const autoCrop = settings?.autoCropMargins ?? false;
+  const imageQuality = settings?.imageQuality ?? "balanced";
+  const pageGap = settings?.readerPageGap ?? 8;
+  const maxWidth = settings?.readerMaxWidth ?? 900;
+  const sidePadding = settings?.readerSidePadding ?? 0;
+  const preloadWindow = settings?.readerPagePreload ?? 3;
   const shortcuts = useMemo(() => parseShortcutMap(settings?.keyboardShortcuts), [settings?.keyboardShortcuts]);
   const clampZoom = useCallback((v: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, v)), []);
 
@@ -195,8 +200,8 @@ export function Reader() {
     return win
       .map((d) => page + d)
       .filter((p) => p >= 0 && p < comic.pageCount)
-      .map((p) => api.pageUrl(comic.id, p, autoCrop));
-  }, [comic, page, autoCrop]);
+      .map((p) => api.pageUrl(comic.id, p, autoCrop, imageQuality));
+  }, [comic, page, autoCrop, imageQuality]);
   useImagePreload(preloadUrls);
 
   const goNext = useCallback(() => {
@@ -406,6 +411,9 @@ export function Reader() {
           zoom={zoom}
           onPageChange={setPage}
           scrollRef={scrollableRef}
+          pageGap={pageGap}
+          maxWidth={maxWidth}
+          imageQuality={imageQuality}
         />
       ) : mode === "scroll-v" ? (
         <ContinuousView
@@ -418,6 +426,11 @@ export function Reader() {
           zoom={zoom}
           onPageChange={setPage}
           scrollRef={scrollableRef}
+          pageGap={pageGap}
+          maxWidth={maxWidth}
+          sidePadding={sidePadding}
+          preloadWindow={preloadWindow}
+          imageQuality={imageQuality}
         />
       ) : mode === "paged-h-2" ? (
         <DoublePage
@@ -429,6 +442,8 @@ export function Reader() {
           rtl={rtl}
           autoCrop={autoCrop}
           scrollRef={scrollableRef}
+          imageQuality={imageQuality}
+          pageGap={pageGap}
           onClickZone={(zone) => {
             if (zone === "prev") goPrev();
             else if (zone === "next") goNext();
@@ -444,6 +459,7 @@ export function Reader() {
           autoCrop={autoCrop}
           axis={mode === "paged-v" ? "vertical" : "horizontal"}
           scrollRef={scrollableRef}
+          imageQuality={imageQuality}
           onClickZone={(zone) => {
             if (zone === "prev") goPrev();
             else if (zone === "next") goNext();

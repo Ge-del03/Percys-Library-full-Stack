@@ -70,6 +70,32 @@ model Settings {
   hasOnboarded   Boolean @default(false)
   autoApplySettings Boolean @default(true)
   animationsEnabled Boolean @default(true)
+  // Granular animation toggles (each independently disable-able even
+  // when animationsEnabled = true). Keeping these as plain booleans so
+  // the SQLite schema stays trivially queryable and we don't need a
+  // JSON shape for what is conceptually a flat dictionary.
+  animPageTransitions Boolean @default(true)
+  animHoverParallax   Boolean @default(true)
+  animHudFades        Boolean @default(true)
+  animMicroInteractions Boolean @default(true)
+  animBrandShimmer    Boolean @default(true)
+  animIntensity       Int     @default(100) // 0..100 — global speed/scale multiplier
+
+  // Reader layout (continuous / webtoon)
+  readerPageGap      Int     @default(8)    // px between pages
+  readerMaxWidth     Int     @default(900)  // max content width in px (0 = full)
+  readerSidePadding  Int     @default(0)    // px of inner side padding
+  readerPagePreload  Int     @default(3)    // pages to preload around current
+  imageQuality       String  @default("balanced") // "high" | "balanced" | "fast"
+
+  // Advanced personalisation
+  customCss          String  @default("")   // raw CSS appended to runtime stylesheet
+  backgroundImage    String?                // data: URL or remote URL for app background
+  backgroundDim      Int     @default(60)   // 0..100 dim overlay strength
+  fontScale          Int     @default(100)  // 80..130 — base font scale percent
+
+  // Stats UI prefs
+  statsRange         String  @default("30d") // "7d" | "30d" | "90d" | "1y" | "all"
 }
 
 model Bookmark {
