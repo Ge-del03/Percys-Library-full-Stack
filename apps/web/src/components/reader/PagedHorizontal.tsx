@@ -14,9 +14,10 @@ interface Props {
   onClickZone: (zone: "prev" | "next" | "ui") => void;
   onLoaded?: () => void;
   scrollRef?: React.MutableRefObject<HTMLDivElement | null>;
+  imageQuality?: "high" | "balanced" | "fast";
 }
 
-export function PagedView({ comicId, page, fitMode, zoom, rtl, autoCrop, axis, onClickZone, onLoaded, scrollRef }: Props) {
+export function PagedView({ comicId, page, fitMode, zoom, rtl, autoCrop, axis, onClickZone, onLoaded, scrollRef, imageQuality }: Props) {
   const [loading, setLoading] = useState(true);
   const { wrapperRef, panX, panY, dragging, consumeClick } = usePanZoom(zoom, page);
 
@@ -76,7 +77,7 @@ export function PagedView({ comicId, page, fitMode, zoom, rtl, autoCrop, axis, o
       >
         <img
           key={`${comicId}-${page}`}
-          src={api.pageUrl(comicId, page, autoCrop)}
+          src={api.pageUrl(comicId, page, autoCrop, imageQuality)}
           alt={`Página ${page + 1}`}
           draggable={false}
           onLoad={() => {

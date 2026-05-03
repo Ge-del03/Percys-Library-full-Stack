@@ -37,6 +37,95 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyTheme(theme, accent);
   }, [settings?.theme, settings?.accentColor, settings?.customThemes]);
 
+  // ---------------------------------------------------------------
+  // Animation toggles. Drive every animation knob through HTML data
+  // attributes on <html> so styles.css can target them with simple
+  // attribute selectors (no JS-dependent class state).
+  // ---------------------------------------------------------------
+  useEffect(() => {
+    const root = document.documentElement;
+    const animOn = settings?.animationsEnabled ?? true;
+    root.setAttribute("data-anim", animOn ? "1" : "0");
+    root.setAttribute(
+      "data-reduce-motion",
+      settings?.reduceMotion ? "1" : "0",
+    );
+    root.setAttribute(
+      "data-anim-page",
+      animOn && (settings?.animPageTransitions ?? true) ? "1" : "0",
+    );
+    root.setAttribute(
+      "data-anim-hover",
+      animOn && (settings?.animHoverParallax ?? true) ? "1" : "0",
+    );
+    root.setAttribute(
+      "data-anim-hud",
+      animOn && (settings?.animHudFades ?? true) ? "1" : "0",
+    );
+    root.setAttribute(
+      "data-anim-micro",
+      animOn && (settings?.animMicroInteractions ?? true) ? "1" : "0",
+    );
+    root.setAttribute(
+      "data-anim-shimmer",
+      animOn && (settings?.animBrandShimmer ?? true) ? "1" : "0",
+    );
+    const intensity = Math.max(0, Math.min(100, settings?.animIntensity ?? 100));
+    root.style.setProperty("--pl-anim-scale", String(intensity / 100));
+    const fontScale = Math.max(80, Math.min(130, settings?.fontScale ?? 100));
+    root.style.setProperty("font-size", `${fontScale}%`);
+  }, [
+    settings?.animationsEnabled,
+    settings?.animPageTransitions,
+    settings?.animHoverParallax,
+    settings?.animHudFades,
+    settings?.animMicroInteractions,
+    settings?.animBrandShimmer,
+    settings?.animIntensity,
+    settings?.reduceMotion,
+    settings?.fontScale,
+  ]);
+
+  // ---------------------------------------------------------------
+  // Custom CSS sandbox. We replace the contents of a single dedicated
+  // <style> tag rather than appending so successive edits don't
+  // accumulate dead rules. The tag lives at the end of <head> so it
+  // wins specificity ties without resorting to !important.
+  // ---------------------------------------------------------------
+  useEffect(() => {
+    const css = (settings?.customCss ?? "").slice(0, 20_000);
+    let style = document.getElementById("pl-custom-css") as HTMLStyleElement | null;
+    if (!css.trim()) {
+      style?.remove();
+      return;
+    }
+    if (!style) {
+      style = document.createElement("style");
+      style.id = "pl-custom-css";
+      document.head.appendChild(style);
+    }
+    style.textContent = css;
+  }, [settings?.customCss]);
+
+  // ---------------------------------------------------------------
+  // Background image with adjustable dim overlay. Uses a fixed-position
+  // pseudo layer so the image stays put while content scrolls.
+  // ---------------------------------------------------------------
+  useEffect(() => {
+    const url = settings?.backgroundImage;
+    const dim = Math.max(0, Math.min(100, settings?.backgroundDim ?? 60));
+    const root = document.documentElement;
+    if (!url) {
+      root.style.setProperty("--pl-bg-image", "none");
+      root.style.setProperty("--pl-bg-dim", "0");
+      root.removeAttribute("data-bg-image");
+      return;
+    }
+    root.style.setProperty("--pl-bg-image", `url(${JSON.stringify(url)})`);
+    root.style.setProperty("--pl-bg-dim", String(dim / 100));
+    root.setAttribute("data-bg-image", "1");
+  }, [settings?.backgroundImage, settings?.backgroundDim]);
+
   return <>{children}</>;
 }
 

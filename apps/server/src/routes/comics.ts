@@ -209,6 +209,7 @@ comicsRouter.get(
     const n = parseInt(req.params.n, 10);
     if (Number.isNaN(n) || n < 0) return res.status(400).end();
     let autoCrop: boolean;
+    let quality: "high" | "balanced" | "fast" | undefined;
     if (req.query.crop === "1") autoCrop = true;
     else if (req.query.crop === "0") autoCrop = false;
     else {
@@ -216,11 +217,23 @@ comicsRouter.get(
       const settings = await prisma.settings.findUnique({ where: { ownerId } });
       autoCrop = settings?.autoCropMargins ?? false;
     }
-    const page = await getPage(req.params.id, n, { autoCrop });
+    // Quality may come from the URL (so the client can override per-tab)
+    // or fall back to the user's setting. Unknown values silently default
+    // to balanced — this stays compatible with old reader URLs.
+    const q = String(req.query.q ?? "");
+    if (q === "high" || q === "balanced" || q === "fast") {
+      quality = q;
+    } else {
+      const ownerId = getOwnerId(req);
+      const settings = await prisma.settings.findUnique({ where: { ownerId } });
+      const s = settings?.imageQuality;
+      quality = s === "high" || s === "balanced" || s === "fast" ? s : "balanced";
+    }
+    const page = await getPage(req.params.id, n, { autoCrop, quality });
     if (!page) return res.status(404).end();
     res.setHeader("Content-Type", page.mime);
-    // The crop variant is encoded in the URL query, so the browser cache
-    // will naturally key separately for cropped vs raw pages.
+    // The crop variant + quality are encoded in the URL query, so the
+    // browser cache will naturally key separately for each combination.
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.end(page.data);
   }),

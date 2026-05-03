@@ -1,7 +1,7 @@
 import { prisma } from "../db";
 import { cache } from "./cache";
 import { getExtractor, type ComicFormat } from "./pipeline";
-import { autoCropWhiteMargins, detectMime, makeThumbnail } from "../lib/image-utils";
+import { autoCropWhiteMargins, detectMime, makeThumbnail, recompressForQuality } from "../lib/image-utils";
 import { config } from "../config";
 
 export interface PageBlob {
@@ -9,12 +9,23 @@ export interface PageBlob {
   mime: string;
 }
 
-export async function getPage(comicId: string, index: number, opts: { autoCrop?: boolean } = {}): Promise<PageBlob | null> {
-  const memKey = `${comicId}:${index}:${opts.autoCrop ? "crop" : "raw"}`;
+export type ImageQuality = "high" | "balanced" | "fast";
+
+export async function getPage(
+  comicId: string,
+  index: number,
+  opts: { autoCrop?: boolean; quality?: ImageQuality } = {},
+): Promise<PageBlob | null> {
+  const quality: ImageQuality = opts.quality ?? "balanced";
+  // Cache key includes the quality tier so different tiers don't shadow
+  // each other on disk; sharing entries between tiers would force every
+  // visitor to wait for whichever variant happened to be cached first.
+  const variant = `${opts.autoCrop ? "crop" : "raw"}-${quality}`;
+  const memKey = `${comicId}:${index}:${variant}`;
   const memHit = cache.mem.get(memKey);
   if (memHit) return { data: memHit, mime: detectMime(memHit) };
 
-  const diskKey = cache.pageKey(comicId, index, opts.autoCrop ? "crop" : "raw");
+  const diskKey = cache.pageKey(comicId, index, variant);
   const diskHit = await cache.readDisk("pages", diskKey);
   if (diskHit) {
     cache.mem.set(memKey, diskHit);
@@ -37,6 +48,10 @@ export async function getPage(comicId: string, index: number, opts: { autoCrop?:
     } catch {
       // fall back to original
     }
+  }
+
+  if (quality !== "high") {
+    buf = await recompressForQuality(buf, quality);
   }
 
   cache.mem.set(memKey, buf);

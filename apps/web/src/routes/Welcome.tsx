@@ -55,6 +55,9 @@ export function Welcome() {
   const [direction, setDirection] = useState<"ltr" | "rtl">("ltr");
   const [coverSize, setCoverSize] = useState<"sm" | "md" | "lg">("md");
   const [saving, setSaving] = useState(false);
+  const [showFirstError, setShowFirstError] = useState(false);
+  const [readerPageGap, setReaderPageGap] = useState(8);
+  const [readerSidePadding, setReaderSidePadding] = useState(0);
 
   // If the user already onboarded, never show this page — bounce home.
   useEffect(() => {
@@ -77,6 +80,8 @@ export function Welcome() {
     if (settings.userName) setFirst(settings.userName);
     if (settings.userLastName) setLast(settings.userLastName);
     setAvatar(settings.avatar ?? null);
+    setReaderPageGap(settings.readerPageGap ?? 8);
+    setReaderSidePadding(settings.readerSidePadding ?? 0);
   }, [settings]);
 
   const chosenTheme = useMemo(
@@ -101,6 +106,8 @@ export function Welcome() {
         readingMode,
         direction,
         coverSize,
+        readerPageGap,
+        readerSidePadding,
         hasOnboarded: true,
       };
       await update(patch);
@@ -285,11 +292,25 @@ export function Welcome() {
                     <input
                       autoFocus
                       value={first}
-                      onChange={(e) => setFirst(e.target.value)}
+                      onChange={(e) => {
+                        setFirst(e.target.value);
+                        if (showFirstError && e.target.value.trim()) setShowFirstError(false);
+                      }}
                       placeholder="¿Cómo te llamas?"
                       maxLength={40}
-                      className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-violet-400/60 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
+                      aria-invalid={showFirstError}
+                      className={clsx(
+                        "w-full rounded-2xl border bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2",
+                        showFirstError
+                          ? "border-rose-400/70 focus:border-rose-400/80 focus:ring-rose-400/20"
+                          : "border-white/10 focus:border-violet-400/60 focus:ring-violet-400/20",
+                      )}
                     />
+                    {showFirstError && (
+                      <span className="block text-xs font-bold text-rose-300">
+                        Necesitamos al menos un nombre para personalizar la biblioteca.
+                      </span>
+                    )}
                   </label>
                   <label className="space-y-2">
                     <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">
@@ -482,6 +503,45 @@ export function Welcome() {
                   </div>
                 </div>
 
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                      Espacio entre páginas
+                    </span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={48}
+                      step={2}
+                      value={readerPageGap}
+                      onChange={(e) => setReaderPageGap(parseInt(e.target.value, 10))}
+                      className="w-full accent-violet-400"
+                    />
+                    <div className="flex justify-between text-[11px] font-bold text-slate-500">
+                      <span>{readerPageGap}px</span>
+                      <span>{readerPageGap === 0 ? "Sin gap" : readerPageGap > 24 ? "Espacioso" : "Normal"}</span>
+                    </div>
+                  </label>
+                  <label className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                      Márgenes laterales
+                    </span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={80}
+                      step={4}
+                      value={readerSidePadding}
+                      onChange={(e) => setReaderSidePadding(parseInt(e.target.value, 10))}
+                      className="w-full accent-violet-400"
+                    />
+                    <div className="flex justify-between text-[11px] font-bold text-slate-500">
+                      <span>{readerSidePadding}px</span>
+                      <span>{readerSidePadding === 0 ? "A pantalla" : "Con aire"}</span>
+                    </div>
+                  </label>
+                </div>
+
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm leading-relaxed text-slate-400">
                   Vas a empezar como{" "}
                   <span className="font-bold text-white">
@@ -522,9 +582,10 @@ export function Welcome() {
                     type="button"
                     onClick={() => {
                       if (step === 0 && !canAdvanceFromStep0) {
-                        push("Escribe tu nombre para continuar", "warn");
+                        setShowFirstError(true);
                         return;
                       }
+                      setShowFirstError(false);
                       setStep((s) => ((s + 1) as Step));
                     }}
                     disabled={saving}

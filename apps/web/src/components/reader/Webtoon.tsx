@@ -12,6 +12,12 @@ interface Props {
   onPageChange: (n: number) => void;
   /** Optional external ref to expose the scrolling container (for auto-scroll). */
   scrollRef?: React.MutableRefObject<HTMLDivElement | null>;
+  /** Pixels of vertical gap between consecutive panels. */
+  pageGap?: number;
+  /** Maximum width of the strip (0 = unbounded). */
+  maxWidth?: number;
+  /** Server-side image quality tier. */
+  imageQuality?: "high" | "balanced" | "fast";
 }
 
 /**
@@ -24,7 +30,18 @@ interface Props {
  *  - Reserves a tall-but-collapsing aspect-ratio box for unloaded pages so
  *    the scrollbar doesn't jump as images decode in.
  */
-export function WebtoonView({ comicId, pageCount, current, autoCrop, zoom, onPageChange, scrollRef }: Props) {
+export function WebtoonView({
+  comicId,
+  pageCount,
+  current,
+  autoCrop,
+  zoom,
+  onPageChange,
+  scrollRef,
+  pageGap = 0,
+  maxWidth = 900,
+  imageQuality,
+}: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const wrappersRef = useRef<HTMLDivElement[]>([]);
   const lastScrollSet = useRef(-1);
@@ -113,8 +130,13 @@ export function WebtoonView({ comicId, pageCount, current, autoCrop, zoom, onPag
         onClick={(e) => {
           if (consumeClick()) e.preventDefault();
         }}
-        className={clsx("mx-auto flex w-full max-w-[900px] flex-col items-stretch will-change-transform", zoom > 1 && (dragging ? "cursor-grabbing" : "cursor-grab"))}
-        style={{ transform: `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`, transformOrigin: "top center" }}
+        className={clsx("mx-auto flex w-full flex-col items-stretch will-change-transform", zoom > 1 && (dragging ? "cursor-grabbing" : "cursor-grab"))}
+        style={{
+          transform: `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`,
+          transformOrigin: "top center",
+          gap: `${pageGap}px`,
+          maxWidth: maxWidth > 0 ? `${maxWidth}px` : undefined,
+        }}
       >
         {Array.from({ length: pageCount }).map((_, i) => (
           <div
@@ -130,10 +152,11 @@ export function WebtoonView({ comicId, pageCount, current, autoCrop, zoom, onPag
           >
             {loaded.has(i) ? (
               <img
-                src={api.pageUrl(comicId, i, autoCrop)}
+                src={api.pageUrl(comicId, i, autoCrop, imageQuality)}
                 alt={`Página ${i + 1}`}
                 loading="lazy"
                 decoding="async"
+                fetchPriority={Math.abs(i - current) <= 1 ? "high" : "low"}
                 draggable={false}
                 className="reader-page-img block w-full h-auto select-none"
               />
