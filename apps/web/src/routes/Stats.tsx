@@ -603,7 +603,12 @@ function ComicRanking({
   return (
     <ol className="space-y-2">
       {comics.map((c, i) => {
-        const pct = c.pageCount > 0 ? Math.round((c.currentPage / c.pageCount) * 100) : 0;
+        // currentPage is 0-indexed, so we use the server-computed
+        // pagesEstimated which already accounts for that and for completion.
+        const pct =
+          c.pageCount > 0
+            ? Math.min(100, Math.round((c.pagesEstimated / c.pageCount) * 100))
+            : 0;
         return (
           <li key={c.id}>
             <Link
