@@ -66,6 +66,7 @@ export function Settings() {
   const [newThemeDraft, setNewThemeDraft] = useState<ThemePreset | null>(null);
   const [pendingPatch, setPendingPatch] = useState<Partial<SettingsDto>>({});
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [wipeConfirmOpen, setWipeConfirmOpen] = useState(false);
   const settingsView = useMemo(
     () => ({ ...settings, ...pendingPatch } as SettingsDto),
     [settings, pendingPatch],
@@ -219,8 +220,10 @@ export function Settings() {
   async function onPickBackground(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 1_400_000) {
-      push("El fondo es demasiado grande (máx. 1.4 MB)", "error");
+    // Server caps the data URL at 1.5 MB. Base64 inflates ~33%, so the
+    // raw file must stay under ~1 MB to fit. Be a bit conservative.
+    if (file.size > 1_050_000) {
+      push("El fondo es demasiado grande (máx. 1 MB)", "error");
       return;
     }
     try {
@@ -1255,21 +1258,16 @@ export function Settings() {
                   </Field>
                 </div>
 
-                <Field label="Reset rápido del perfil">
+                <Field label="Borrar todo y empezar de cero">
                   <button
-                    onClick={async () => {
-                      try {
-                        await api.resetProfile();
-                        await update({});
-                        push("Perfil restablecido", "success");
-                      } catch {
-                        push("No se pudo restablecer el perfil", "error");
-                      }
-                    }}
-                    className="pl-btn text-xs"
+                    onClick={() => setWipeConfirmOpen(true)}
+                    className="rounded-xl bg-red-600/20 border border-red-500/40 text-red-300 hover:bg-red-600/30 hover:text-red-200 px-4 py-2 text-xs font-bold transition-all"
                   >
-                    Restablecer perfil (mantiene biblioteca)
+                    Borrar perfil + biblioteca + progresos
                   </button>
+                  <p className="text-[10px] text-red-300/70 font-bold uppercase tracking-widest mt-2">
+                    Acción irreversible. Te llevará a la pantalla de bienvenida.
+                  </p>
                 </Field>
               </div>
               {manualMode && (
@@ -1370,6 +1368,41 @@ export function Settings() {
                 className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-500"
               >
                 Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {wipeConfirmOpen && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-3xl border border-red-500/30 bg-ink-900 p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-red-300">Borrar perfil y biblioteca</h3>
+            <p className="mt-2 text-sm text-slate-300">
+              Esta acción <strong className="text-red-300">elimina todos tus cómics, marcadores,
+              días de lectura y logros</strong>, además de borrar tu nombre, avatar y
+              configuración personalizada. Volverás a la pantalla de bienvenida.
+            </p>
+            <p className="mt-3 text-xs text-slate-400">No se puede deshacer.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setWipeConfirmOpen(false)} className="pl-btn">
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await api.resetProfile();
+                    await update({});
+                    setWipeConfirmOpen(false);
+                    push("Perfil y biblioteca borrados", "success");
+                    setTimeout(() => navigate("/welcome", { replace: true }), 250);
+                  } catch {
+                    push("No se pudo borrar el perfil", "error");
+                  }
+                }}
+                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-500"
+              >
+                Sí, borrar todo
               </button>
             </div>
           </div>

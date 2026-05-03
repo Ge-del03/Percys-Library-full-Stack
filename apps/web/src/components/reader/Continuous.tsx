@@ -82,25 +82,30 @@ export function ContinuousView({
       (entries) => {
         let bestRatio = 0;
         let best = current;
-        const next = new Set<number>(visiblePages);
-        let changedSet = false;
-        for (const e of entries) {
-          const idx = Number((e.target as HTMLDivElement).dataset.page);
-          if (e.isIntersecting) {
-            if (!next.has(idx)) {
-              next.add(idx);
+        // Use a functional updater so consecutive observer callbacks
+        // before the next effect run see the latest set instead of the
+        // stale value captured when the effect originally ran.
+        setVisiblePages((prev) => {
+          const next = new Set<number>(prev);
+          let changedSet = false;
+          for (const e of entries) {
+            const idx = Number((e.target as HTMLDivElement).dataset.page);
+            if (e.isIntersecting) {
+              if (!next.has(idx)) {
+                next.add(idx);
+                changedSet = true;
+              }
+              if (e.intersectionRatio > bestRatio) {
+                bestRatio = e.intersectionRatio;
+                best = idx;
+              }
+            } else if (next.has(idx)) {
+              next.delete(idx);
               changedSet = true;
             }
-            if (e.intersectionRatio > bestRatio) {
-              bestRatio = e.intersectionRatio;
-              best = idx;
-            }
-          } else if (next.has(idx)) {
-            next.delete(idx);
-            changedSet = true;
           }
-        }
-        if (changedSet) setVisiblePages(next);
+          return changedSet ? next : prev;
+        });
         if (bestRatio > 0 && best !== current) {
           lastScrollSet.current = best;
           onPageChange(best);
@@ -116,8 +121,6 @@ export function ContinuousView({
     );
     wrappersRef.current.forEach((el) => el && observer.observe(el));
     return () => observer.disconnect();
-    // visiblePages excluded on purpose — we mutate it inside the observer.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comicId, pageCount, current, onPageChange]);
 
   function fitClass(): string {
