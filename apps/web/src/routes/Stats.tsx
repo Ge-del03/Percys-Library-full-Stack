@@ -607,7 +607,7 @@ function ComicRanking({
         return (
           <li key={c.id}>
             <Link
-              to={`/reader/${c.id}`}
+              to={`/read/${c.id}`}
               className="group flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] p-3 hover:bg-white/[0.05] hover:border-blue-500/30 transition-all"
             >
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-600/20 text-sm font-black text-blue-300 border border-blue-500/30 shrink-0">

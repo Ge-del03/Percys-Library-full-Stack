@@ -200,8 +200,8 @@ export function Reader() {
     return win
       .map((d) => page + d)
       .filter((p) => p >= 0 && p < comic.pageCount)
-      .map((p) => api.pageUrl(comic.id, p, autoCrop));
-  }, [comic, page, autoCrop]);
+      .map((p) => api.pageUrl(comic.id, p, autoCrop, imageQuality));
+  }, [comic, page, autoCrop, imageQuality]);
   useImagePreload(preloadUrls);
 
   const goNext = useCallback(() => {

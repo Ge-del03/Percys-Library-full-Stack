@@ -65,7 +65,10 @@ export async function getThumb(comicId: string, index: number): Promise<Buffer |
   const diskHit = await cache.readDisk("thumbs", key);
   if (diskHit) return diskHit;
 
-  const page = await getPage(comicId, index);
+  // Always derive thumbnails from the original (high) page so we don't
+  // stack two lossy passes (recompress -> resize). The page tier the user
+  // chose only affects in-reader delivery, not the cached thumbnail.
+  const page = await getPage(comicId, index, { quality: "high" });
   if (!page) return null;
   let thumb: Buffer;
   try {
