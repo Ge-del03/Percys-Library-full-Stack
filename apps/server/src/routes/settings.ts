@@ -117,6 +117,18 @@ settingsRouter.post(
           keyboardShortcuts: "{}",
           customCss: "",
           backgroundImage: null,
+          // Reset visual companions too so a fresh profile starts with
+          // defaults end-to-end (no stale dim/font scale/anim intensity
+          // bleeding into a brand-new onboarding flow).
+          backgroundDim: 60,
+          fontScale: 100,
+          animIntensity: 100,
+          animPageTransitions: true,
+          animHoverParallax: true,
+          animHudFades: true,
+          animMicroInteractions: true,
+          animBrandShimmer: true,
+          statsRange: "30d",
         },
       }),
     ]);

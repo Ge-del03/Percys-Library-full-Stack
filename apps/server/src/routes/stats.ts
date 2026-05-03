@@ -70,7 +70,9 @@ statsRouter.get(
       .map(({ lastReadAt: _l, ...rest }) => rest);
 
     const almostDone = withProgress
-      .filter((c) => !c.completed && c.pageCount > 0 && c.currentPage / c.pageCount >= 0.7)
+      .filter(
+        (c) => !c.completed && c.pageCount > 0 && c.pagesEstimated / c.pageCount >= 0.7,
+      )
       .sort((a, b) => b.pagesEstimated - a.pagesEstimated)
       .slice(0, 3)
       .map(({ lastReadAt: _l, ...rest }) => rest);
